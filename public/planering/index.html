@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ekonomisk planering och scenarioanalys</title>
+<style>
+/* ============================================================ designsystem
+   Färger, typsnitt, radier och skuggor. Byt värdena i :root för att ge
+   appen det egna bolagets profil.
+   Seriefärgerna är varumärkesfärgernas nyanser snappade till steg som klarar
+   färgseende- och kontrastkraven i båda lägena — varumärkesfärgerna
+   rakt av faller på gult, vinrött, teal och grönt.
+   ============================================================ */
+
+:root {
+  color-scheme: light;
+  /* Varumärkesfärger: byt här */
+  --marke-rod: #cf0035; --marke-rod-ink: #b30030; --marke-svart: #1d1d1b;
+  --marke-kol: #222423; --marke-gradde: #f7efe8; --marke-sand: #f2e5d8;
+
+  --plan:            #f7efe8;   /* cream */
+  --yta:             #ffffff;
+  --yta-2:           #f3f1ec;   /* gray-100 */
+  --ink:             #1d1d1b;   /* black */
+  --ink-2:           #44443f;   /* gray-700 */
+  --ink-3:           #767670;   /* gray-500 */
+  --linje:           #e6e3dc;   /* gray-200 */
+  --linje-stark:     #cfcdc6;   /* gray-300 */
+  --ram:             rgba(29,29,27,.12);
+  --accent:          #cf0035;
+  --accent-svag:     #ffdee7;   /* pink-100 */
+  /* flikar: vilande i sand, vald i varumärkesfärgen */
+  --flik:            #f2e5d8;   /* sand */
+  --flik-hover:      #faf5ee;
+  --flik-aktiv:      #cf0035;
+  --flik-aktiv-ink:  #ffffff;
+  /* Seriefärger — validerade mot vit kortyta */
+  --serie-1: #cf0035; --serie-2: #0a8f84; --serie-3: #c9a200; --serie-4: #2a6fb0;
+  --serie-5: #a04a60; --serie-6: #5c9440; --serie-7: #7a5bc4; --serie-8: #d9662a;
+  --pos: #0a8f84; --neg: #cf0035;
+  --neutral-stapel: #767670;
+  --bra: #4a7841; --varning: #f4db49; --kritisk: #cf0035;
+  --skugga: 0 1px 2px rgba(29,29,27,.06);
+  --skugga-md: 0 4px 16px rgba(29,29,27,.08);
+  --radie-sm: 4px; --radie-md: 8px; --radie-lg: 14px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-tema="ljust"])) {
+    color-scheme: dark;
+    /* Varmt mörkt läge ur samma neutralramp — gräddvit text på mörkt
+       brunt, inte svart och inte blått. */
+    --plan: #262120; --yta: #322b28; --yta-2: #3d352f;
+    --ink: #f7efe8; --ink-2: #d5cabf; --ink-3: #a39990;
+    --linje: #453c37; --linje-stark: #5a4f48; --ram: rgba(247,239,232,.14);
+    --accent: #e34a63; --accent-svag: #4a2a31;
+    --flik: #473d36; --flik-hover: #574b42; --flik-aktiv: #b82e47; --flik-aktiv-ink: #f7efe8;
+    --serie-1: #e34a63; --serie-2: #16a99c; --serie-3: #b08c1a; --serie-4: #5a97e0;
+    --serie-5: #c9738f; --serie-6: #5f9a45; --serie-7: #9b82e0; --serie-8: #d9723e;
+    --pos: #16a99c; --neg: #e34a63;
+    --bra: #6faa50; --kritisk: #e34a63; --neutral-stapel: #a39990;
+    --skugga: 0 1px 2px rgba(20,16,14,.4);
+    --skugga-md: 0 4px 16px rgba(20,16,14,.45);
+  }
+}
+:root[data-tema="morkt"] {
+  color-scheme: dark;
+  --plan: #262120; --yta: #322b28; --yta-2: #3d352f;
+  --ink: #f7efe8; --ink-2: #d5cabf; --ink-3: #a39990;
+  --linje: #453c37; --linje-stark: #5a4f48; --ram: rgba(247,239,232,.14);
+  --accent: #e34a63; --accent-svag: #4a2a31;
+  --flik: #473d36; --flik-hover: #574b42; --flik-aktiv: #b82e47; --flik-aktiv-ink: #f7efe8;
+  --serie-1: #e34a63; --serie-2: #16a99c; --serie-3: #b08c1a; --serie-4: #5a97e0;
+  --serie-5: #c9738f; --serie-6: #5f9a45; --serie-7: #9b82e0; --serie-8: #d9723e;
+  --pos: #16a99c; --neg: #e34a63;
+  --bra: #6faa50; --kritisk: #e34a63; --neutral-stapel: #a39990;
+  --skugga: 0 1px 2px rgba(20,16,14,.4);
+  --skugga-md: 0 4px 16px rgba(20,16,14,.45);
+}
+
+* { box-sizing: border-box; }
+html, body { height: 100%; }
+body {
+  margin: 0; background: var(--plan); color: var(--ink);
+  font: 13px/1.5 "Avenir Next", "Segoe UI", system-ui, -apple-system, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
+}
+/* Alla typsnitt har inte tabulära siffror. Sifferkolumner faller därför tillbaka på en
+   systemfont med fast teckenbredd så att tabellerna linjerar. */
+.tal, table.data td, table.data th, .dg-tick, .dg-varde, .dg-tip-v, .kpi .varde,
+input[type=number], .spak-rad b {
+  font-family: Arial, "Helvetica Neue", system-ui, sans-serif;
+}
+:where(button, a, select, input, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 2px;
+}
+button, input, select, textarea { font: inherit; color: inherit; }
+h1,h2,h3,h4 { margin: 0; font-weight: 600; }
+.tal { font-variant-numeric: tabular-nums; }
+
+/* ------------------------------------------------------------ stomme */
+.app { display: flex; flex-direction: column; height: 100vh; }
+.topp {
+  display: flex; align-items: center; gap: 16px;
+  padding: 0 18px; height: 52px; flex: none;
+  background: var(--yta); border-bottom: 1px solid var(--linje);
+}
+.marke { font-size: 17px; font-weight: 600; letter-spacing: -.015em; color: var(--ink); }
+.topp-hoger { margin-left: auto; display: flex; align-items: center; gap: 8px; }
+
+.kropp { display: flex; flex: 1; min-height: 0; }
+.sidopanel {
+  width: var(--panel-bredd, 272px); flex: none; overflow-y: auto; padding: 14px;
+  background: var(--yta);
+}
+/* Ingen toppadding: scenariobaren och flikraden är klistrade och ska ligga
+   dikt an mot apphuvudet, annars öppnar sig en glipa där innehållet syns. */
+main { flex: 1; min-width: 0; overflow-y: auto; padding: 0 20px 56px; }
+
+/* ------------------------------------------------------------ panelbredd */
+.panelgrepp {
+  flex: none; width: 7px; margin-right: -3px; cursor: col-resize;
+  background: transparent; border-right: 1px solid var(--linje);
+  position: relative; z-index: 4; transition: border-color .12s;
+}
+.panelgrepp::after {
+  content: ""; position: absolute; inset: 0 2px; border-radius: 2px;
+  background: transparent; transition: background .12s;
+}
+.panelgrepp:hover::after, .panelgrepp:focus-visible::after,
+.app.panel-dras .panelgrepp::after { background: var(--accent); }
+.panelgrepp:focus-visible { outline: none; }
+.app.panel-dras { cursor: col-resize; user-select: none; }
+.app.panel-dras main, .app.panel-dras .sidopanel { pointer-events: none; }
+
+.panelknapp { padding: 4px 7px; margin-left: -4px; }
+.panelikon {
+  display: block; width: 15px; height: 13px; border-radius: 2px;
+  border: 1.5px solid currentColor; position: relative;
+}
+.panelikon::before {
+  content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px;
+  background: currentColor; border-radius: 1px 0 0 1px;
+}
+.app.panel-dold .panelikon::before { background: transparent; box-shadow: inset 1.5px 0 0 currentColor; }
+.app.panel-dold .sidopanel, .app.panel-dold .panelgrepp { display: none; }
+
+/* ------------------------------------------------------------ kontroller */
+.knapp {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: var(--radie-md); cursor: pointer;
+  background: var(--yta); color: var(--ink); border: 1px solid var(--ram);
+  transition: background .12s, border-color .12s;
+}
+.knapp:hover { background: var(--yta-2); border-color: var(--linje-stark); }
+.knapp.primar { background: var(--accent); color: #fff; border-color: transparent; }
+.knapp.primar:hover { filter: brightness(1.08); }
+.knapp.tyst { border-color: transparent; background: transparent; color: var(--ink-2); }
+.knapp.tyst:hover { background: var(--yta-2); }
+.knapp.liten { padding: 3px 8px; font-size: 12px; }
+.knapp:disabled { opacity: .4; cursor: default; }
+
+.segment { display: inline-flex; background: var(--yta-2); border-radius: var(--radie-md); padding: 2px; gap: 2px; }
+.segment button {
+  border: 0; background: transparent; color: var(--ink-2); cursor: pointer;
+  padding: 4px 10px; border-radius: var(--radie-sm); font-size: 12px;
+}
+.segment button[aria-pressed="true"] { background: var(--yta); color: var(--ink); box-shadow: var(--skugga); font-weight: 600; }
+
+input[type=number], input[type=text], select {
+  background: var(--yta); border: 1px solid var(--ram); border-radius: var(--radie-md);
+  padding: 4px 7px; width: 100%; font-variant-numeric: tabular-nums;
+}
+input[type=number]:focus, input[type=text]:focus, select:focus {
+  outline: 2px solid var(--accent); outline-offset: -1px; border-color: transparent;
+}
+input[type=range] { width: 100%; accent-color: var(--accent); }
+label.falt { display: block; margin-bottom: 9px; }
+label.falt > span { display: block; font-size: 11.5px; color: var(--ink-2); margin-bottom: 3px; }
+
+/* ------------------------------------------------------------ sidopanel */
+.panelrubrik {
+  font-size: 10.5px; text-transform: uppercase; letter-spacing: .07em;
+  color: var(--ink-3); font-weight: 600; margin: 4px 0 8px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.scenariorad { display: flex; align-items: center; gap: 6px; margin-bottom: 2px; }
+.scenariorad .kombkryss { width: 14px; height: 14px; flex: none; margin: 0 2px; accent-color: var(--accent); cursor: pointer; }
+.scenariorad .kryssplats { width: 18px; flex: none; text-align: center; color: var(--ink-3); font-size: 11px; }
+.scenariorad.syntetisk .kryssplats { color: var(--serie-7); }
+.scenariorad.syntetisk .scenariokort { border-style: dashed; border-color: var(--linje-stark); }
+.scenariorad.syntetisk .scenariokort[aria-current="true"] { border-style: solid; }
+.scenariokort .antal {
+  display: inline-block; min-width: 15px; padding: 0 4px; border-radius: 9px;
+  background: var(--yta-2); color: var(--ink-2); font-size: 10.5px; text-align: center; font-weight: 600;
+}
+.kombhint { font-size: 11.5px; color: var(--ink-3); margin: 8px 2px 0; line-height: 1.45; }
+.prick-liten { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 7px; flex: none; }
+
+.scenariokort {
+  display: flex; align-items: center; gap: 9px; flex: 1; min-width: 0; text-align: left;
+  padding: 8px 9px; border-radius: var(--radie-md); cursor: pointer;
+  background: transparent; border: 1px solid transparent;
+}
+.scenariokort:hover { background: var(--yta-2); }
+.scenariokort[aria-current="true"] { background: var(--accent-svag); border-color: color-mix(in srgb, var(--accent) 28%, transparent); }
+.scenariokort .prick { width: 9px; height: 9px; border-radius: 50%; flex: none; }
+.scenariokort .namn { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 500; }
+.scenariokort .delta { font-size: 11.5px; font-variant-numeric: tabular-nums; color: var(--ink-3); flex: none; }
+.spak { margin-bottom: 14px; }
+.spak-rad { display: flex; justify-content: space-between; align-items: baseline; margin-bottom: 3px; }
+.spak-rad b { font-size: 12.5px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.spak-rad span { font-size: 11.5px; color: var(--ink-2); }
+
+/* ------------------------------------------------------------ kpi */
+/* ------------------------------------------------------------ scenariolist */
+/* Visar hela tiden vilket scenario man är inne i och vad det ändrar. */
+/* Ligger under flikarna, i innehållet — den ska inte följa med vid scroll. */
+.scenariobar {
+  display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+  margin: 0 0 14px; padding: 10px 14px;
+  background: var(--yta); border: 1px solid var(--ram);
+  border-radius: var(--radie-lg); box-shadow: var(--skugga);
+}
+.scenariobar .sb-prick {
+  width: 11px; height: 11px; border-radius: 50%; flex: none;
+  background: var(--scenariofarg, var(--serie-1));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--scenariofarg, var(--serie-1)) 20%, transparent);
+}
+.scenariobar .sb-namn { font-weight: 600; font-size: 13.5px; }
+.scenariobar .sb-andr { font-size: 12px; color: var(--ink-2); }
+.scenariobar .sb-andr b { color: var(--ink); }
+.scenariobar .sb-hoger { margin-left: auto; display: flex; gap: 8px; align-items: center; }
+.scenariobar .marke-liten { border-color: color-mix(in srgb, var(--scenariofarg, var(--ink-3)) 45%, transparent); }
+
+.flikar .flikprick {
+  display: inline-block; width: 7px; height: 7px; border-radius: 50%; margin-left: 7px;
+  background: var(--scenariofarg, var(--serie-1)); vertical-align: 1px;
+}
+/* scenariofärgen syns inte mot den röda fliken — pricken går i flikens textfärg */
+.flikar button[aria-selected="true"] .flikprick { background: var(--flik-aktiv-ink); }
+
+/* rader där scenariot avviker från basplanen */
+table.data tr.andrad-rad td.etikett {
+  box-shadow: inset 3px 0 0 var(--scenariofarg, var(--accent));
+  font-weight: 600; color: var(--ink);
+}
+table.data td.andrad input, table.data td.andrad select,
+.falt input.andrad, .falt select.andrad {
+  border-color: var(--scenariofarg, var(--accent)); font-weight: 600;
+  background: color-mix(in srgb, var(--scenariofarg, var(--accent)) 8%, var(--yta));
+}
+.fargprov {
+  display: inline-block; width: 22px; height: 9px; border-radius: 3px; vertical-align: 0;
+  background: color-mix(in srgb, var(--scenariofarg, var(--accent)) 25%, var(--yta));
+  border-left: 3px solid var(--scenariofarg, var(--accent));
+}
+
+/* Årsraden är översta hyllan och ligger kvar när man scrollar. */
+.arval {
+  position: sticky; top: 0; z-index: 7;
+  display: flex; gap: 2px; flex-wrap: wrap; align-items: center;
+  margin: 0 -20px 14px; padding: 12px 20px 11px;
+  background: var(--plan); transition: box-shadow .15s;
+}
+.arval.fast { box-shadow: 0 1px 0 var(--linje), 0 6px 12px -10px rgba(29,29,27,.5); }
+.arval button {
+  border: 1px solid var(--ram); background: var(--yta); color: var(--ink-2);
+  padding: 4px 12px; border-radius: var(--radie-md); cursor: pointer; font-variant-numeric: tabular-nums;
+}
+.arval button[aria-pressed="true"] { background: var(--ink); color: var(--plan); border-color: transparent; font-weight: 600; }
+.arval .prognosmark { opacity: .55; }
+.arval .arkiverad { opacity: .45; border-style: dashed; }
+.arval .arkivknapp { color: var(--ink-3); border-style: dashed; margin-right: 8px; }
+.arval .arkivknapp[aria-pressed="true"] { color: var(--ink-2); background: var(--yta-2); }
+
+table.data tr.gruppdel td {
+  background: var(--yta-2); font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-3); font-weight: 600; padding-top: 9px;
+}
+table.data tr.niva-underpost td.etikett { padding-left: 42px; color: var(--ink-3); font-weight: 400; font-style: italic; }
+.andamalnr {
+  display: inline-block; margin-left: 8px; font-size: 10.5px; color: var(--ink-3);
+  font-variant-numeric: tabular-nums;
+}
+.info-prick {
+  display: inline-block; width: 13px; height: 13px; line-height: 13px; text-align: center;
+  border-radius: 50%; background: var(--yta-2); color: var(--ink-3); font-size: 9.5px;
+  font-style: italic; cursor: help; vertical-align: 1px;
+}
+h4.underrubrik { margin: 18px 0 4px; font-size: 12px; color: var(--ink-2); }
+
+/* Inte klistrad: remsan glider in under årsraden och tonas bort på vägen,
+   så att år och flikar möts när man scrollat förbi den. */
+.kpi-remsa {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(178px, 1fr));
+  gap: 10px; margin-bottom: 18px; opacity: var(--kpi-syns, 1);
+}
+.kpi {
+  background: var(--yta); border: 1px solid var(--ram); border-radius: var(--radie-lg);
+  padding: 11px 13px 8px; box-shadow: var(--skugga);
+}
+.kpi .rub { font-size: 11.5px; color: var(--ink-2); margin-bottom: 5px; }
+.kpi .varde { font-size: 25px; font-weight: 600; letter-spacing: -.02em; line-height: 1.1; }
+.kpi .varde .enh { font-size: 12px; font-weight: 400; color: var(--ink-3); margin-left: 4px; letter-spacing: 0; }
+.kpi .fot { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 2px; min-height: 42px; }
+.kpi .diff { font-size: 12px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.kpi .mini { flex: 1; min-width: 40px; }
+.upp { color: var(--bra); } .ned { color: var(--kritisk); } .noll { color: var(--ink-3); }
+
+/* ------------------------------------------------------------ flikar */
+/* Huvudnavigationen i modellen. Egen rail över hela innehållsbredden och
+   klistrad under scenariobaren, så att man alltid ser — och når — var man står. */
+/* Flikarna ligger omlott som register i en pärm: varje flik skjuter in under
+   nästa, och den valda dras fram, får full färg och täcker skenans underkant.
+   Underkantslinjen är en inre skugga just därför — den ligger innanför
+   padding-boxen och kan målas över av den valda fliken utan att spilla ut. */
+.flikar {
+  position: sticky; top: var(--arval-h, 46px); z-index: 6;
+  display: flex; gap: 0; align-items: flex-end;
+  margin: 0 -20px 18px; padding: 9px 20px 1px;
+  background: var(--plan); box-shadow: inset 0 -1px 0 var(--linje-stark);
+  overflow-x: auto; scrollbar-width: none;
+}
+.flikar::-webkit-scrollbar { display: none; }
+.flikar button {
+  position: relative; z-index: 1; margin-right: -10px;
+  background: var(--flik); color: var(--ink-2);
+  border: 1px solid var(--ram); border-bottom: 0;
+  border-radius: 10px 10px 0 0;
+  padding: 7px 24px 9px; white-space: nowrap; cursor: pointer;
+  font-size: 14px; font-weight: 500; letter-spacing: -.005em;
+  transition: background .12s, color .12s;
+}
+.flikar button:last-child { margin-right: 0; }
+.flikar button:hover { background: var(--flik-hover); color: var(--ink); z-index: 2; }
+.flikar button[aria-selected="true"] {
+  z-index: 3; margin-bottom: -1px; padding-top: 9px;
+  background: var(--flik-aktiv); color: var(--flik-aktiv-ink);
+  border-color: transparent; font-weight: 600;
+  box-shadow: 0 -1px 3px rgba(29,29,27,.14);
+}
+/* röd fokusring syns inte mot röd flik */
+.flikar button[aria-selected="true"]:focus-visible { outline-color: var(--ink); }
+
+/* ------------------------------------------------------------ kort */
+.kort {
+  background: var(--yta); border: 1px solid var(--ram); border-radius: var(--radie-lg);
+  padding: 14px 16px 16px; margin-bottom: 14px; box-shadow: var(--skugga);
+}
+.kort > header { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 4px; }
+.kort h3 { font-size: 13.5px; }
+.kort .hjalp { font-size: 12px; color: var(--ink-2); margin: 2px 0 10px; max-width: 76ch; }
+.kort .verktyg { margin-left: auto; display: flex; gap: 6px; align-items: center; flex: none; }
+.rutnat-2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(340px, 1fr)); gap: 14px; }
+
+.brygghuvud {
+  display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 10px;
+  padding: 9px 12px; margin-bottom: 8px; border-radius: var(--radie-md);
+  background: var(--yta-2); border: 1px solid var(--ram); font-size: 12px; color: var(--ink-2);
+}
+.brygghuvud b { color: var(--ink); font-size: 14px; font-weight: 600; }
+.brygghuvud .pil { color: var(--ink-3); margin: 0 2px; }
+.brygghuvud .netto { margin-left: auto; font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.teckenforklaring { display: flex; flex-wrap: wrap; gap: 4px 16px; margin-top: 10px; font-size: 12px; color: var(--ink-2); }
+.teckenforklaring span { display: inline-flex; align-items: center; gap: 6px; }
+.teckenforklaring i { width: 10px; height: 10px; border-radius: 2px; display: inline-block; }
+.teckenforklaring i.strecked { background: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 6px); }
+.teckenforklaring .harforklaring { cursor: help; border-bottom: 1px dotted var(--linje-stark); }
+
+/* så räknas scenariot */
+.fork-block + .fork-block { margin-top: 14px; padding-top: 12px; border-top: 1px solid var(--linje); }
+.fork-namn { display: flex; align-items: center; font-weight: 600; font-size: 12.5px; margin-bottom: 7px; }
+.fork-post {
+  padding: 9px 12px; margin-bottom: 7px; border-radius: var(--radie-md);
+  background: var(--yta-2); border-left: 3px solid var(--scenariofarg, var(--accent));
+  font-size: 12.5px; line-height: 1.5;
+}
+.fork-post .fork-effekt { color: var(--ink-2); font-size: 12px; margin-top: 3px; }
+.fork-post .fork-verkar { color: var(--ink-3); font-size: 11.5px; margin-top: 3px; }
+
+/* ------------------------------------------------------------ tabeller */
+.tabellsvep { overflow-x: auto; margin: 0 -16px; padding: 0 16px; }
+table.data { border-collapse: collapse; width: 100%; font-size: 12px; }
+table.data th, table.data td { padding: 5px 9px; text-align: right; white-space: nowrap; }
+table.data th { font-weight: 600; color: var(--ink-2); border-bottom: 1px solid var(--linje-stark); font-size: 11.5px; }
+table.data td.etikett, table.data th.etikett {
+  text-align: left; position: sticky; left: 0; background: var(--yta);
+  min-width: 250px; z-index: 1;
+}
+table.data td { font-variant-numeric: tabular-nums; border-bottom: 1px solid var(--linje); }
+table.data tr:hover td { background: var(--yta-2); }
+table.data tr:hover td.etikett { background: var(--yta-2); }
+table.data tr.niva-delsumma td { font-weight: 600; }
+table.data tr.niva-resultat td { font-weight: 600; border-top: 1px solid var(--linje-stark); background: color-mix(in srgb, var(--accent) 5%, transparent); }
+table.data tr.niva-resultat td.etikett { background: color-mix(in srgb, var(--accent) 5%, var(--yta)); }
+table.data tr.niva-post td.etikett { padding-left: 24px; color: var(--ink-2); font-weight: 400; }
+
+/* hopfällbara delsummor */
+.fallknapp {
+  display: flex; align-items: center; gap: 6px; width: 100%; text-align: left;
+  border: 0; background: transparent; color: inherit; font: inherit; font-weight: inherit;
+  cursor: pointer; padding: 0; margin: -2px 0; border-radius: 5px;
+}
+.fallknapp:hover { color: var(--accent); }
+.fallknapp:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.fallknapp .chevron {
+  display: inline-block; width: 12px; flex: none; color: var(--ink-3);
+  font-size: 10px; transition: transform .12s; transform-origin: 45% 50%;
+}
+.fallknapp[aria-expanded="true"] .chevron { transform: rotate(90deg); }
+.fallknapp:hover .chevron { color: var(--accent); }
+.fallknapp .antalposter {
+  margin-left: auto; padding: 0 5px; border-radius: 8px; font-size: 10px; font-weight: 600;
+  background: var(--yta-2); color: var(--ink-3); min-width: 16px; text-align: center;
+}
+.fallknapp[aria-expanded="true"] .antalposter { opacity: 0; }
+table.data tr.fallbar:hover td.etikett .antalposter { opacity: 1; }
+table.data tr.niva-post td.etikett .fallknapp { padding-left: 0; }
+table.data tr.avstangd td { opacity: .42; }
+/* huvudtalet i en tabell — översta raden bland nyckeltalen */
+table.data tbody tr.nyckelrad td { font-weight: 600; color: var(--ink); border-bottom-color: var(--linje-stark); }
+
+/* summeringsfot */
+table.data tfoot td { border-bottom: 0; padding-top: 6px; padding-bottom: 6px; }
+table.data tfoot tr.summa-rad td { font-weight: 600; border-top: 1px solid var(--linje-stark); }
+table.data tfoot tr.summa-rad td.etikett { font-weight: 600; }
+table.data tfoot tr.summa-svag td { color: var(--ink-3); }
+table.data tfoot tr.summa-total td {
+  font-weight: 600; border-top: 1px solid var(--linje-stark);
+  background: color-mix(in srgb, var(--accent) 6%, transparent);
+}
+table.data tfoot tr.summa-total td.etikett { background: color-mix(in srgb, var(--accent) 6%, var(--yta)); }
+table.data tfoot tr:hover td { background: var(--yta-2); }
+table.data tfoot tr.summa-total:hover td { background: color-mix(in srgb, var(--accent) 10%, var(--yta-2)); }
+table.data td.kant { border-left: 1px dashed var(--linje-stark); }
+table.data input[type=number] { width: 84px; text-align: right; padding: 2px 5px; }
+/* utgift per år i projektrutnätet — smalare än vanliga sifferfält */
+table.data input.spendcell { width: 64px; }
+table.data td.diff-plus { color: var(--bra); }
+table.data td.diff-minus { color: var(--kritisk); }
+table.data th.vansterstall, table.data td.vansterstall { text-align: left; white-space: normal; }
+table.data td.svag { color: var(--ink-3); font-size: 11.5px; max-width: 230px; }
+.prognoshuvud { color: var(--ink-3); font-weight: 400 !important; }
+
+/* ------------------------------------------------------------ diagram */
+.dg { display: block; overflow: visible; }
+.dg-rutnat { stroke: var(--linje); stroke-width: 1; }
+.dg-nollinje { stroke: var(--linje-stark); stroke-width: 1; }
+.dg-kors { stroke: var(--linje-stark); stroke-width: 1; stroke-dasharray: 3 3; pointer-events: none; }
+.dg-kopplare { stroke: var(--linje-stark); stroke-width: 1; stroke-dasharray: 2 2; }
+.dg-tick { fill: var(--ink-3); font-size: 11px; font-variant-numeric: tabular-nums; }
+.dg-etikett { fill: var(--ink-2); font-size: 11.5px; }
+.dg-varde { fill: var(--ink); font-size: 11.5px; font-variant-numeric: tabular-nums; font-weight: 600; }
+.dg-minietikett { fill: var(--ink-2); font-size: 10px; font-variant-numeric: tabular-nums; }
+.dg-stapel { transition: opacity .1s; }
+.dg-stapel:hover { opacity: .82; }
+.diagram { width: 100%; }
+
+/* ------------------------------------------------------------ förklaringar */
+/* Hovertext på valfritt element med data-fork — används för nyckeltalens
+   definitioner så att de inte behöver ligga som brödtext under tabellen. */
+[data-fork] {
+  cursor: help; text-decoration: underline dotted var(--linje-stark);
+  text-underline-offset: 3px;
+}
+[data-fork]:hover, [data-fork]:focus-visible { text-decoration-color: var(--ink-3); }
+.fork-tip {
+  position: fixed; top: 0; left: 0; z-index: 95; pointer-events: none;
+  max-width: 380px; padding: 10px 12px;
+  background: var(--yta); color: var(--ink-2);
+  border: 1px solid var(--ram); border-radius: var(--radie-md);
+  box-shadow: var(--skugga-md); font-size: 12px; line-height: 1.55;
+  opacity: 0; transform: translateY(-2px); transition: opacity .1s, transform .1s;
+}
+.fork-tip.syns { opacity: 1; transform: none; }
+.fork-tip b { display: block; color: var(--ink); font-size: 12.5px; margin-bottom: 3px; }
+.fork-tip .formel {
+  display: block; margin-top: 7px; padding-top: 6px; border-top: 1px solid var(--linje);
+  font-family: Arial, "Helvetica Neue", system-ui, sans-serif; color: var(--ink-3);
+}
+
+.dg-tip {
+  position: fixed; top: 0; left: 0; z-index: 90; pointer-events: none;
+  background: var(--yta); border: 1px solid var(--ram); border-radius: var(--radie-md);
+  padding: 8px 10px; box-shadow: var(--skugga-md);
+  font-size: 12px; opacity: 0; transition: opacity .1s; max-width: 320px;
+}
+.dg-tip.syns { opacity: 1; }
+.dg-tip-rub { font-weight: 600; margin-bottom: 4px; }
+.dg-tip-rad { display: flex; align-items: center; gap: 7px; margin-top: 2px; }
+.dg-prick { width: 8px; height: 8px; border-radius: 50%; flex: none; }
+.dg-tip-namn { color: var(--ink-2); }
+.dg-tip-v { margin-left: auto; font-variant-numeric: tabular-nums; font-weight: 600; padding-left: 12px; }
+
+/* ------------------------------------------------------------ notiser */
+.notis {
+  display: flex; gap: 9px; padding: 9px 12px; border-radius: var(--radie-md); font-size: 12px;
+  background: var(--yta-2); border: 1px solid var(--ram); color: var(--ink-2); margin-bottom: 12px;
+}
+.notis b { color: var(--ink); font-weight: 600; }
+.notis.info { border-left: 3px solid var(--accent); }
+.notis.varning { border-left: 3px solid var(--varning); }
+
+.marke-liten {
+  display: inline-block; padding: 1px 6px; border-radius: var(--radie-sm); font-size: 10.5px;
+  background: var(--yta-2); color: var(--ink-2); border: 1px solid var(--ram); white-space: nowrap;
+}
+.marke-liten.sak { border-color: color-mix(in srgb, var(--varning) 50%, transparent); }
+
+/* ------------------------------------------------------------ dialog */
+dialog {
+  border: 1px solid var(--ram); border-radius: var(--radie-lg); background: var(--yta); color: var(--ink);
+  padding: 0; max-width: 620px; width: calc(100vw - 32px); box-shadow: 0 12px 32px rgba(29,29,27,.22);
+}
+dialog::backdrop { background: rgba(0,0,0,.34); }
+dialog > header { padding: 15px 18px 0; display: flex; align-items: center; }
+dialog > .innehall { padding: 12px 18px; max-height: 66vh; overflow-y: auto; }
+dialog > footer { padding: 12px 18px 16px; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px solid var(--linje); }
+.falt-rad { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.falt-rad-3 { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 12px; }
+
+/* ------------------------------------------------------------ kontextmeny */
+.kontextmeny {
+  position: fixed; z-index: 120; min-width: 218px; padding: 5px;
+  background: var(--yta); border: 1px solid var(--ram); border-radius: var(--radie-lg);
+  box-shadow: 0 12px 32px rgba(29,29,27,.18);
+}
+.kontextmeny button {
+  display: block; width: 100%; text-align: left; border: 0; background: transparent;
+  color: var(--ink); padding: 6px 10px; border-radius: var(--radie-md); cursor: pointer; font-size: 12.5px;
+}
+.kontextmeny button:hover:not(:disabled), .kontextmeny button:focus-visible { background: var(--yta-2); outline: none; }
+.kontextmeny button:disabled { color: var(--ink-3); cursor: default; }
+.kontextmeny button.fara { color: var(--kritisk); }
+.kontextmeny hr { border: 0; border-top: 1px solid var(--linje); margin: 5px 6px; }
+
+/* ------------------------------------------------------------ spaktabell */
+table.data.spaktabell td, table.data.spaktabell th { padding: 4px 8px; }
+table.data.spaktabell tr.gruppdel td {
+  background: var(--yta-2); font-size: 10.5px; text-transform: uppercase;
+  letter-spacing: .06em; color: var(--ink-3); font-weight: 600; text-align: left;
+}
+table.data.spaktabell tr.andrad td.etikett { font-weight: 600; }
+table.data.spaktabell tr.andrad input { border-color: var(--accent); font-weight: 600; }
+table.data.spaktabell td.svag { color: var(--ink-3); }
+table.data.spaktabell select { width: 100%; }
+.spakfalt { display: flex; align-items: center; gap: 5px; justify-content: flex-end; }
+.spakfalt input[type=number] { width: 78px; text-align: right; }
+.spakenhet { font-size: 11px; color: var(--ink-3); min-width: 42px; text-align: left; }
+/* effektraden ska synas medan man skruvar, inte scrollas bort */
+#sd-effekt {
+  position: sticky; bottom: -13px; z-index: 2; margin: 10px 0 0;
+  background: var(--yta); box-shadow: 0 -8px 12px -8px rgba(0,0,0,.2);
+}
+
+.tomtext { color: var(--ink-3); font-size: 12px; padding: 16px 0; text-align: center; }
+.radgrupp { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.vaxel { position: relative; display: inline-block; width: 34px; height: 19px; flex: none; }
+.vaxel input { opacity: 0; width: 0; height: 0; }
+.vaxel .reglage {
+  position: absolute; inset: 0; background: var(--linje-stark); border-radius: 19px;
+  cursor: pointer; transition: background .15s;
+}
+.vaxel .reglage:before {
+  content: ""; position: absolute; width: 15px; height: 15px; left: 2px; top: 2px;
+  background: #fff; border-radius: 50%; transition: transform .15s;
+}
+.vaxel input:checked + .reglage { background: var(--accent); }
+.vaxel input:checked + .reglage:before { transform: translateX(15px); }
+
+@media (max-width: 900px) {
+  .kropp { flex-direction: column; }
+  .sidopanel { width: 100%; border-bottom: 1px solid var(--linje); max-height: 46vh; }
+  .panelgrepp { display: none; }
+  main { padding: 0 16px 48px; }
+  .arval { margin: 0 -16px 14px; padding: 12px 16px 11px; }
+  .flikar { margin: 0 -16px 16px; padding: 9px 16px 1px; }
+}
+@media print {
+  .sidopanel, .flikar, .topp-hoger, .verktyg, .arval { display: none !important; }
+  main { overflow: visible; height: auto; }
+  .kort { break-inside: avoid; }
+}
+</style>
+</head>
+<body>
+<div class="app">
+  <header class="topp">
+    <button class="knapp tyst panelknapp" id="knapp-panel" aria-expanded="true"
+            aria-controls="sidopanel" title="Dölj scenariopanelen (Ctrl+B)">
+      <span class="panelikon" aria-hidden="true"></span>
+    </button>
+    <div class="marke">Ekonomisk planering och scenarioanalys</div>
+    <div class="topp-hoger">
+      <div class="segment" id="enhetsval" role="group" aria-label="Enhet">
+        <button data-enhet="mnkr" aria-pressed="true">mnkr</button>
+        <button data-enhet="tkr" aria-pressed="false">tkr</button>
+      </div>
+      <div id="konto-plats" style="display:flex;align-items:center;gap:6px"></div>
+      <button class="knapp tyst" id="knapp-tema" title="Växla ljust/mörkt läge" aria-label="Växla ljust/mörkt läge">◐</button>
+    </div>
+  </header>
+
+  <div class="kropp">
+    <aside class="sidopanel" id="sidopanel">
+      <div class="panelrubrik">Scenarier
+        <button class="knapp liten" id="knapp-nytt" title="Nytt scenario">+ Nytt</button>
+      </div>
+      <div id="scenariolista"></div>
+      <div class="radgrupp" style="margin:10px 0 18px">
+        <button class="knapp liten" id="knapp-redigera">Redigera…</button>
+        <button class="knapp liten tyst" id="knapp-duplicera">Duplicera</button>
+        <button class="knapp liten tyst" id="knapp-ta-bort">Ta bort</button>
+        <button hidden id="knapp-byt-namn"></button>
+      </div>
+
+      <div class="panelrubrik">Jämför mot</div>
+      <select id="jamforval" style="margin-bottom:18px"></select>
+
+      <div class="panelrubrik">Snabbspakar</div>
+      <div id="snabbspakar"></div>
+
+      <div class="panelrubrik" style="margin-top:18px">Filer</div>
+      <div class="radgrupp">
+        <button class="knapp liten" id="knapp-prognos" title="Läs in en tertialprognos, en investeringsspec eller ett sparat scenario">Läs in fil…</button>
+        <button class="knapp liten tyst" id="knapp-exportera" title="Hela modellen som Excel-arbetsbok">Exportera Excel</button>
+      </div>
+      <input type="file" id="prognosval" accept=".xlsx,.xlsm,.csv,.txt,.tsv,.json" hidden>
+    </aside>
+
+    <div class="panelgrepp" id="panelgrepp" role="separator" aria-orientation="vertical"
+         tabindex="0" aria-label="Ändra bredd på scenariopanelen"
+         title="Dra för att ändra bredd · dubbelklicka för att återställa"></div>
+
+    <main>
+      <!-- Årsraden och flikraden är klistrade var för sig. Nyckeltalsremsan
+           däremellan är det inte, så den fälls ihop under årsraden när man
+           scrollar — inget ändrar höjd, alltså inga hopp i innehållet. -->
+      <div class="arval" id="arval" role="group" aria-label="Välj år"></div>
+      <div class="kpi-remsa" id="kpi"></div>
+      <nav class="flikar" id="flikar" role="tablist"></nav>
+      <div class="scenariobar" id="scenariobar"></div>
+      <div id="flikinnehall"></div>
+    </main>
+  </div>
+</div>
+
+<dialog id="dialog">
+  <header><h3 id="dialog-rubrik"></h3></header>
+  <div class="innehall" id="dialog-innehall"></div>
+  <footer id="dialog-fot"></footer>
+</dialog>
+
+<script src="data/underlag.js"></script>
+<script src="app/las-fil.js"></script>
+<script src="app/skriv-xlsx.js"></script>
+<script src="app/modell.js"></script>
+<script src="app/agent-api.js"></script>
+<script src="app/diagram.js"></script>
+<script src="app/ui.js"></script>
+</body>
+</html>
